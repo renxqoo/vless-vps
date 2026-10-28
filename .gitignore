@@ -15,4 +15,6 @@
 !tsconfig.json
 !dist/
 !dist/vless-sub-server.js
+!docs/
+!docs/security-hardening.md
 .env
