@@ -46,7 +46,7 @@ Hysteria2 节点由三个变量控制：`HY2_AUTH` 留空则订阅里不出现�
 ## 部署要点
 
 1. Xray 官方脚本安装；证书用 acme.sh `--certificate-profile shortlived` 签 IP 证书（Let's Encrypt，6 天有效期，ARI 自动排期续期），`--install-cert --reloadcmd "chown xray:xray /etc/xray-certs/*; chmod 600 /etc/xray-certs/*; systemctl restart xray; systemctl restart hysteria; systemctl restart vless-sub"` 挂钩热加载，三个服务共用同一份证书。`vless-sub` 只在启动时 `readFileSync` 证书并交给 `createServer`，不重启就会一直用旧证书，续期后订阅端点会返回过期证书导致客户端拉订阅失败，所以钩子里必须包含它。
-2. Bun 装在 `/root/.bun/bin/bun`；服务器运行 `bun run /usr/local/bin/vless-sub-server.js`（`bun build` 产物，`deploy:build` 一键推进）；密钥在 `WorkingDirectory` 的 `.env`。
+2. Bun 装在 `/usr/local/bin/bun`；服务器运行 `bun run /usr/local/bin/vless-sub-server.js`（`bun build` 产物，`deploy:build` 一键推进）；密钥在 `WorkingDirectory` 的 `.env`（`root:xray 0640`）。服务以 `xray` 用户运行，所以 bun 不能放在 `/root`（`0700`，`xray` 无法穿越）。
 3. 流量统计依赖 `vnstat`（接口名 `NET_IF`）。
 4. 换号：服务器执行 `vless-url`，输出新分享链接和订阅地址；客户端更新订阅即可。Hysteria2 用密码认证，不受 UUID 换号影响。
 5. Hysteria2 安装：下载 `hysteria-linux-amd64` 到 `/usr/local/bin/hysteria`，按 `deploy/hysteria-config.example.yaml` 写 `/etc/hysteria/config.yaml`（600，`root` 所有但属组可读时用 `root:xray` + `0640`，因为服务以 `xray` 用户运行），用 `deploy/hysteria.service.example` 建 unit 并 `systemctl enable --now hysteria`。
@@ -56,4 +56,17 @@ Hysteria2 节点由三个变量控制：`HY2_AUTH` 留空则订阅里不出现�
 ## 安全注意
 
 - `SUB_SECRET`、WS path、UUID、`HY2_AUTH`、`HY2_OBFS`、服务器地址均为凭证，仓库内只有占位符；真实值放 `.env`（已 gitignore）。
-- 服务器上真实值在 `/etc/systemd/system/vless-sub.service`、`/usr/local/bin/.env`、`/usr/local/etc/xray/config.json` 与 `/etc/hysteria/config.yaml`，不要提交。
+- 服务器上真实值在 `/usr/local/bin/.env`、`/usr/local/etc/xray/config.json` 与 `/etc/hysteria/config.yaml`，不要提交。
+- `vless-sub` 仅需读配置与证书，勿以 root 运行（见 `deploy/vless-sub.service.example`）。
+
+## 安全加固
+
+防火墙、补丁、SSH 与降权的分阶段方案、验收口径和实测记录见
+`docs/security-hardening.md`。要点：
+
+- 入站白名单为 `443/tcp`、`2053/tcp`、`8443/tcp`、`2096/udp`、`65455/tcp`；
+  增减端口时同步 `ufw` 与本文档；
+- SSH 仅公钥登录（`PasswordAuthentication no`，drop-in 在 `/etc/ssh/sshd_config.d/10-hardening.conf`）；
+- `fail2ban` 的 `sshd` jail 必须覆盖 `journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd`。
+  默认值是 `sshd.service`，而 Ubuntu 的 unit 名是 `ssh.service`，不覆盖会**静默不生效**
+  （`status` 显示 running 但永远抓不到事件）。
