@@ -1,0 +1,23 @@
+{
+  "name": "vless-vps",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Xray VLESS + Bun subscription server with 6-day Let's Encrypt IP certs and one-command UUID rotation",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/vless-sub-server.ts",
+    "dev": "bun --watch run src/vless-sub-server.ts",
+    "typecheck": "tsc --noEmit",
+    "deploy:sub": "scp -P ${VLESS_SSH_PORT:-65455} src/vless-sub-server.ts ${VLESS_SSH_TARGET:?set VLESS_SSH_TARGET=user@host}:/usr/local/bin/vless-sub-server.ts && ssh -p ${VLESS_SSH_PORT:-65455} ${VLESS_SSH_TARGET} 'chmod 700 /usr/local/bin/vless-sub-server.ts && systemctl restart vless-sub'",
+    "deploy:rotate": "scp -P ${VLESS_SSH_PORT:-65455} deploy/vless-url ${VLESS_SSH_TARGET:?set VLESS_SSH_TARGET=user@host}:/usr/local/bin/vless-url && ssh -p ${VLESS_SSH_PORT:-65455} ${VLESS_SSH_TARGET} 'chmod 700 /usr/local/bin/vless-url'",
+    "rotate": "ssh -p ${VLESS_SSH_PORT:-65455} ${VLESS_SSH_TARGET:?set VLESS_SSH_TARGET=user@host} /usr/local/bin/vless-url"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "bun": ">=1.4.4"
+  }
+}

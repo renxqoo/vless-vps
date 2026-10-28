@@ -8,4 +8,7 @@
 !README.md
 !.gitignore
 !.env.example
+!package.json
+!bun.lock
+!tsconfig.json
 .env
