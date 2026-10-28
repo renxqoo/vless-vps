@@ -39,7 +39,7 @@
 ## 部署要点
 
 1. Xray 官方脚本安装；证书用 acme.sh `--certificate-profile shortlived` 签 IP 证书（Let's Encrypt，6 天有效期，ARI 自动排期续期），`--install-cert --reloadcmd "systemctl restart xray"` 挂钩热加载。
-2. Bun 装在 `/root/.bun/bin/bun`；`vless-sub.service` 通过 `Environment=` 注入密钥，或在 `WorkingDirectory` 放 `.env`。
+2. Bun 装在 `/root/.bun/bin/bun`；服务器运行 `bun run /usr/local/bin/vless-sub-server.js`（`bun build` 产物，`deploy:build` 一键推进）；密钥在 `WorkingDirectory` 的 `.env`。
 3. 流量统计依赖 `vnstat`（接口名 `NET_IF`）。
 4. 换号：服务器执行 `vless-url`，输出新 vless:// 链接和订阅地址；客户端更新订阅即可。
 

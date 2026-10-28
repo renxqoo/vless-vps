@@ -7,7 +7,9 @@
   "scripts": {
     "start": "bun run src/vless-sub-server.ts",
     "dev": "bun --watch run src/vless-sub-server.ts",
+    "build": "bun build src/vless-sub-server.ts --target=bun --outfile=dist/vless-sub-server.js",
     "typecheck": "tsc --noEmit",
+    "deploy:build": "bun run build && scp -P ${VLESS_SSH_PORT:-65455} dist/vless-sub-server.js ${VLESS_SSH_TARGET:?set VLESS_SSH_TARGET=user@host}:/usr/local/bin/vless-sub-server.js && ssh -p ${VLESS_SSH_PORT:-65455} ${VLESS_SSH_TARGET} 'chmod 700 /usr/local/bin/vless-sub-server.js && systemctl restart vless-sub'",
     "deploy:sub": "scp -P ${VLESS_SSH_PORT:-65455} src/vless-sub-server.ts ${VLESS_SSH_TARGET:?set VLESS_SSH_TARGET=user@host}:/usr/local/bin/vless-sub-server.ts && ssh -p ${VLESS_SSH_PORT:-65455} ${VLESS_SSH_TARGET} 'chmod 700 /usr/local/bin/vless-sub-server.ts && systemctl restart vless-sub'",
     "deploy:rotate": "scp -P ${VLESS_SSH_PORT:-65455} deploy/vless-url ${VLESS_SSH_TARGET:?set VLESS_SSH_TARGET=user@host}:/usr/local/bin/vless-url && ssh -p ${VLESS_SSH_PORT:-65455} ${VLESS_SSH_TARGET} 'chmod 700 /usr/local/bin/vless-url'",
     "rotate": "ssh -p ${VLESS_SSH_PORT:-65455} ${VLESS_SSH_TARGET:?set VLESS_SSH_TARGET=user@host} /usr/local/bin/vless-url"
