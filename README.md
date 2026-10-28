@@ -45,7 +45,7 @@ Hysteria2 节点由三个变量控制：`HY2_AUTH` 留空则订阅里不出现�
 
 ## 部署要点
 
-1. Xray 官方脚本安装；证书用 acme.sh `--certificate-profile shortlived` 签 IP 证书（Let's Encrypt，6 天有效期，ARI 自动排期续期），`--install-cert --reloadcmd "systemctl restart xray; systemctl restart hysteria"` 挂钩热加载，两个服务共用同一份证书。
+1. Xray 官方脚本安装；证书用 acme.sh `--certificate-profile shortlived` 签 IP 证书（Let's Encrypt，6 天有效期，ARI 自动排期续期），`--install-cert --reloadcmd "chown xray:xray /etc/xray-certs/*; chmod 600 /etc/xray-certs/*; systemctl restart xray; systemctl restart hysteria; systemctl restart vless-sub"` 挂钩热加载，三个服务共用同一份证书。`vless-sub` 只在启动时 `readFileSync` 证书并交给 `createServer`，不重启就会一直用旧证书，续期后订阅端点会返回过期证书导致客户端拉订阅失败，所以钩子里必须包含它。
 2. Bun 装在 `/root/.bun/bin/bun`；服务器运行 `bun run /usr/local/bin/vless-sub-server.js`（`bun build` 产物，`deploy:build` 一键推进）；密钥在 `WorkingDirectory` 的 `.env`。
 3. 流量统计依赖 `vnstat`（接口名 `NET_IF`）。
 4. 换号：服务器执行 `vless-url`，输出新分享链接和订阅地址；客户端更新订阅即可。Hysteria2 用密码认证，不受 UUID 换号影响。
