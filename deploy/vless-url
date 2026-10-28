@@ -16,6 +16,9 @@ WS_PORT=$(env_value WS_PORT); WS_PORT=${WS_PORT:-2053}
 WS_PATH=$(env_value WS_PATH)
 SUB_PORT=$(env_value SUB_PORT); SUB_PORT=${SUB_PORT:-8443}
 SUB_SECRET=$(env_value SUB_SECRET)
+HY2_PORT=$(env_value HY2_PORT); HY2_PORT=${HY2_PORT:-2096}
+HY2_AUTH=$(env_value HY2_AUTH)
+HY2_OBFS=$(env_value HY2_OBFS)
 
 if [ -z "$HOST" ] || [ -z "$WS_PATH" ] || [ -z "$SUB_SECRET" ]; then
     echo "ERROR: $ENV_FILE 缺少 VLESS_HOST / WS_PATH / SUB_SECRET" >&2
@@ -54,11 +57,12 @@ if ! systemctl is-active --quiet xray; then
     exit 1
 fi
 
-python3 - "$NEW_UUID" "$HOST" "$PORT" "$WS_PORT" "$WS_PATH" <<'PY'
+python3 - "$NEW_UUID" "$HOST" "$PORT" "$WS_PORT" "$WS_PATH" "$HY2_PORT" "$HY2_AUTH" "$HY2_OBFS" <<'PY'
 import sys
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 uuid, host, port, ws_port, ws_path = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+hy2_port, hy2_auth, hy2_obfs = sys.argv[6], sys.argv[7], sys.argv[8]
 
 def link(name, port, **extra):
     q = {"type": "tcp", "security": "tls", "encryption": "none",
@@ -66,6 +70,11 @@ def link(name, port, **extra):
     q.update(extra)
     return f"vless://{uuid}@{host}:{port}?{urlencode(q)}#{name}"
 
+if hy2_auth:
+    q = {"sni": host, "insecure": "0"}
+    if hy2_obfs:
+        q.update({"obfs": "salamander", "obfs-password": hy2_obfs})
+    print(f"hysteria2://{quote(hy2_auth, safe='')}@{host}:{hy2_port}?{urlencode(q)}#wr-vps-hy2")
 print(link("wr-vps-vision", port, flow="xtls-rprx-vision", alpn="h2,http/1.1"))
 print(link("wr-vps-ws", ws_port, type="websocket", path=ws_path, alpn="http/1.1"))
 PY
@@ -74,4 +83,4 @@ echo
 echo "Clash 订阅地址（Remote 导入，换号后在 Clash 点更新订阅即可）："
 echo "https://$HOST:$SUB_PORT/$SUB_SECRET/sub"
 echo
-echo "旧 URL 已全部失效，xray 运行中。"
+echo "旧 VLESS URL 已失效，xray 运行中；Hysteria2 节点使用密码认证，不受本次换号影响。"

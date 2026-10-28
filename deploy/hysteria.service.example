@@ -1,0 +1,21 @@
+[Unit]
+Description=Hysteria2 Server
+After=network.target xray.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hysteria server --config /etc/hysteria/config.yaml
+Restart=on-failure
+RestartSec=3
+User=xray
+Group=xray
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/etc/xray-certs
+LimitNOFILE=1000000
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

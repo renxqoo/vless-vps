@@ -1,0 +1,20 @@
+listen: :2096
+
+tls:
+  cert: /etc/xray-certs/fullchain.pem
+  key: /etc/xray-certs/privkey.pem
+
+obfs:
+  type: salamander
+  salamander:
+    password: HY2_OBFS_PLACEHOLDER
+
+auth:
+  type: password
+  password: HY2_AUTH_PLACEHOLDER
+
+masquerade:
+  type: proxy
+  proxy:
+    url: https://www.bing.com/
+    rewriteHost: true

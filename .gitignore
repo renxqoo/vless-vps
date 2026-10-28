@@ -5,6 +5,8 @@
 !deploy/vless-url
 !deploy/vless-sub.service.example
 !deploy/xray-config.example.json
+!deploy/hysteria-config.example.yaml
+!deploy/hysteria.service.example
 !README.md
 !.gitignore
 !.env.example
