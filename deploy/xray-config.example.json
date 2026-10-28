@@ -20,7 +20,7 @@
         "network": "tcp",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "103.248.228.194",
+          "serverName": "HOST_PLACEHOLDER",
           "certificates": [
             {
               "certificateFile": "/etc/xray-certs/fullchain.pem",
@@ -51,7 +51,7 @@
         "network": "websocket",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "103.248.228.194",
+          "serverName": "HOST_PLACEHOLDER",
           "certificates": [
             {
               "certificateFile": "/etc/xray-certs/fullchain.pem",

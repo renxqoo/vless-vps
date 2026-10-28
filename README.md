@@ -26,7 +26,7 @@
 | `src/vless-sub-server.ts` | Bun 订阅服务：多节点列表、节点选择/自动选择分组、国内直连规则、流量展示 |
 | `deploy/vless-url` | 服务器换号脚本：生成新 UUID → 热替换 → 旧 URL 立即失效，失败自动回滚 |
 | `deploy/vless-sub.service.example` | systemd 单元模板（占位符见内文） |
-| `deploy/xray-config.example.json` | Xray 配置模板（443 Vision + 2053 WS） |
+| `deploy/xray-config.example.json` | Xray 配置模板（443 Vision + 2053 WS）；需替换 `HOST_PLACEHOLDER` / `UUID_PLACEHOLDER` / `WS_PATH_PLACEHOLDER` 后作为 `/usr/local/etc/xray/config.json` |
 | `deploy/hysteria-config.example.yaml` | Hysteria2 服务端配置模板（2096 QUIC + salamander 混淆） |
 | `deploy/hysteria.service.example` | Hysteria2 systemd 单元模板 |
 | `.env.example` | 环境变量清单 |
@@ -51,6 +51,7 @@ Hysteria2 节点由三个变量控制：`HY2_AUTH` 留空则订阅里不出现�
 4. 换号：服务器执行 `vless-url`，输出新分享链接和订阅地址；客户端更新订阅即可。Hysteria2 用密码认证，不受 UUID 换号影响。
 5. Hysteria2 安装：下载 `hysteria-linux-amd64` 到 `/usr/local/bin/hysteria`，按 `deploy/hysteria-config.example.yaml` 写 `/etc/hysteria/config.yaml`（600，`root` 所有但属组可读时用 `root:xray` + `0640`，因为服务以 `xray` 用户运行），用 `deploy/hysteria.service.example` 建 unit 并 `systemctl enable --now hysteria`。
 6. 证书与密钥在 `/etc/xray-certs/`，属主 `xray:xray`、权限 600；`hysteria.service` 以 `xray` 用户运行以便读取。
+7. `deploy/` 下所有模板只作参考，不会被任何脚本自动部署；线上真实值在服务器，模板内统一使用 `HOST_PLACEHOLDER` / `UUID_PLACEHOLDER` / `WS_PATH_PLACEHOLDER` 等占位符。安装时手工替换 `HOST_PLACEHOLDER`（IP 证书场景下 `serverName` 必须等于证书 SAN 里的地址），并写入 `/usr/local/etc/xray/config.json`。
 
 ## 安全注意
 
