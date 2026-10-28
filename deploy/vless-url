@@ -1,15 +1,26 @@
 #!/bin/bash
 set -euo pipefail
 
+ENV_FILE=${VLESS_ENV_FILE:-/usr/local/bin/.env}
 CONFIG=/usr/local/etc/xray/config.json
 BACKUP=/usr/local/etc/xray/config.json.bak
 XRAY=/usr/local/bin/xray
-HOST=103.248.228.194
-PORT=443
-WS_PORT=2053
-WS_PATH=$(systemctl show vless-sub -p Environment | sed 's/.*WS_PATH=\([^ ]*\).*/\1/' | tr -d '"')
-SUB_PORT=8443
-SUB_SECRET=$(systemctl show vless-sub -p Environment | sed 's/.*SUB_SECRET=\([0-9a-f]*\).*/\1/')
+
+env_value() {
+    sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | head -1
+}
+
+HOST=$(env_value VLESS_HOST)
+PORT=$(env_value VLESS_PORT); PORT=${PORT:-443}
+WS_PORT=$(env_value WS_PORT); WS_PORT=${WS_PORT:-2053}
+WS_PATH=$(env_value WS_PATH)
+SUB_PORT=$(env_value SUB_PORT); SUB_PORT=${SUB_PORT:-8443}
+SUB_SECRET=$(env_value SUB_SECRET)
+
+if [ -z "$HOST" ] || [ -z "$WS_PATH" ] || [ -z "$SUB_SECRET" ]; then
+    echo "ERROR: $ENV_FILE 缺少 VLESS_HOST / WS_PATH / SUB_SECRET" >&2
+    exit 1
+fi
 
 NEW_UUID=$("$XRAY" uuid)
 cp "$CONFIG" "$BACKUP"
@@ -60,9 +71,7 @@ print(link("wr-vps-ws", ws_port, type="websocket", path=ws_path, alpn="http/1.1"
 PY
 
 echo
-if [ -n "$SUB_SECRET" ]; then
-    echo "Clash 订阅地址（Remote 导入，换号后在 Clash 点更新订阅即可）："
-    echo "https://$HOST:$SUB_PORT/$SUB_SECRET/sub"
-fi
+echo "Clash 订阅地址（Remote 导入，换号后在 Clash 点更新订阅即可）："
+echo "https://$HOST:$SUB_PORT/$SUB_SECRET/sub"
 echo
 echo "旧 URL 已全部失效，xray 运行中。"
