@@ -1,0 +1,20 @@
+[Unit]
+Description=VLESS subscription endpoint
+After=network.target xray.service
+
+[Service]
+User=root
+Group=root
+Environment=SUB_SECRET=SUB_SECRET_PLACEHOLDER
+Environment=WS_PATH=/WS_PATH_PLACEHOLDER
+ExecStart=/root/.bun/bin/bun run /usr/local/bin/vless-sub-server.ts
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+PrivateTmp=true
+ReadOnlyPaths=/usr/local/etc/xray
+ReadWritePaths=/etc/xray-certs
+
+[Install]
+WantedBy=multi-user.target

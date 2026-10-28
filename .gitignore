@@ -1,0 +1,9 @@
+*
+!src/
+!src/vless-sub-server.ts
+!deploy/
+!deploy/vless-url
+!deploy/vless-sub.service.example
+!deploy/xray-config.example.json
+!README.md
+!.gitignore

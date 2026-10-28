@@ -1,0 +1,68 @@
+#!/bin/bash
+set -euo pipefail
+
+CONFIG=/usr/local/etc/xray/config.json
+BACKUP=/usr/local/etc/xray/config.json.bak
+XRAY=/usr/local/bin/xray
+HOST=103.248.228.194
+PORT=443
+WS_PORT=2053
+WS_PATH=$(systemctl show vless-sub -p Environment | sed 's/.*WS_PATH=\([^ ]*\).*/\1/' | tr -d '"')
+SUB_PORT=8443
+SUB_SECRET=$(systemctl show vless-sub -p Environment | sed 's/.*SUB_SECRET=\([0-9a-f]*\).*/\1/')
+
+NEW_UUID=$("$XRAY" uuid)
+cp "$CONFIG" "$BACKUP"
+
+python3 - "$CONFIG" "$NEW_UUID" "$WS_PATH" <<'PY'
+import json, sys
+
+config_path, new_uuid, ws_path = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(config_path) as f:
+    cfg = json.load(f)
+
+for inbound in cfg["inbounds"]:
+    if inbound["protocol"] == "vless":
+        inbound["settings"]["clients"] = [{"id": new_uuid, "flow": "xtls-rprx-vision"}]
+        if inbound.get("streamSettings", {}).get("network") == "websocket":
+            inbound["settings"]["clients"] = [{"id": new_uuid}]
+            inbound["streamSettings"]["wsSettings"]["path"] = ws_path
+
+with open(config_path, "w") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+PY
+
+systemctl restart xray
+sleep 1
+
+if ! systemctl is-active --quiet xray; then
+    cp "$BACKUP" "$CONFIG"
+    systemctl restart xray
+    echo "ERROR: xray 启动失败，已回滚到上一个配置，旧 URL 仍然有效" >&2
+    journalctl -u xray --no-pager -n 5 --output cat >&2 || true
+    exit 1
+fi
+
+python3 - "$NEW_UUID" "$HOST" "$PORT" "$WS_PORT" "$WS_PATH" <<'PY'
+import sys
+from urllib.parse import urlencode
+
+uuid, host, port, ws_port, ws_path = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+
+def link(name, port, **extra):
+    q = {"type": "tcp", "security": "tls", "encryption": "none",
+         "sni": host, "fp": "chrome", "allowInsecure": "0"}
+    q.update(extra)
+    return f"vless://{uuid}@{host}:{port}?{urlencode(q)}#{name}"
+
+print(link("wr-vps-vision", port, flow="xtls-rprx-vision", alpn="h2,http/1.1"))
+print(link("wr-vps-ws", ws_port, type="websocket", path=ws_path, alpn="http/1.1"))
+PY
+
+echo
+if [ -n "$SUB_SECRET" ]; then
+    echo "Clash 订阅地址（Remote 导入，换号后在 Clash 点更新订阅即可）："
+    echo "https://$HOST:$SUB_PORT/$SUB_SECRET/sub"
+fi
+echo
+echo "旧 URL 已全部失效，xray 运行中。"
