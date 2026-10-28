@@ -7,3 +7,5 @@
 !deploy/xray-config.example.json
 !README.md
 !.gitignore
+!.env.example
+.env

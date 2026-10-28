@@ -2,17 +2,33 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createServer } from "node:https";
 
-const PORT = 8443;
-const XRAY_CONFIG = "/usr/local/etc/xray/config.json";
-const CERT = "/etc/xray-certs/fullchain.pem";
-const KEY = "/etc/xray-certs/privkey.pem";
-const HOST = "103.248.228.194";
-const VLESS_PORT = 443;
-const WS_PORT = 2053;
-const NET_IF = "ens17";
-const TOTAL_BYTES = 200 * 1024 * 1024 * 1024;
+function loadEnv(): void {
+  for (const line of readFileSync(".env", "utf8").split("\n")) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m && process.env[m[1]] === undefined) {
+      process.env[m[1]] = m[2];
+    }
+  }
+}
+
+loadEnv();
+
+const PORT = Number(process.env.SUB_PORT ?? 8443);
+const XRAY_CONFIG = process.env.XRAY_CONFIG ?? "/usr/local/etc/xray/config.json";
+const CERT = process.env.CERT_FILE ?? "/etc/xray-certs/fullchain.pem";
+const KEY = process.env.KEY_FILE ?? "/etc/xray-certs/privkey.pem";
+const HOST = process.env.VLESS_HOST ?? "";
+const VLESS_PORT = Number(process.env.VLESS_PORT ?? 443);
+const WS_PORT = Number(process.env.WS_PORT ?? 2053);
+const NET_IF = process.env.NET_IF ?? "ens17";
+const TOTAL_BYTES = Number(process.env.TOTAL_BYTES ?? 200 * 1024 * 1024 * 1024);
 const SECRET = process.env.SUB_SECRET ?? "";
 const WS_PATH = process.env.WS_PATH ?? "";
+
+if (!HOST || !SECRET || !WS_PATH) {
+  console.error("missing required env: VLESS_HOST / SUB_SECRET / WS_PATH");
+  process.exit(1);
+}
 
 type Client = { id: string; flow?: string };
 type Inbound = {
