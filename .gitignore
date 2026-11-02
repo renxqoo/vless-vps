@@ -1,12 +1,15 @@
 *
 !src/
 !src/vless-sub-server.ts
+!src/vless-sub-server.test.ts
 !deploy/
 !deploy/vless-url
 !deploy/vless-sub.service.example
 !deploy/xray-config.example.json
 !deploy/hysteria-config.example.yaml
 !deploy/hysteria.service.example
+!deploy/99-vless-udp.conf
+!deploy/vless-status
 !README.md
 !.gitignore
 !.env.example
@@ -17,4 +20,6 @@
 !dist/vless-sub-server.js
 !docs/
 !docs/security-hardening.md
+!docs/performance-2026-11-02.json
+!docs/public-download-2026-11-02.json
 .env

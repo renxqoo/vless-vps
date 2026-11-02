@@ -1,10 +1,20 @@
 import { readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { isIP } from "node:net";
 import type { ServerResponse } from "node:http";
 import { createServer } from "node:https";
 
 function loadEnv(): void {
-  for (const line of readFileSync(".env", "utf8").split("\n")) {
+  let contents: string;
+  try {
+    contents = readFileSync(".env", "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  for (const line of contents.split(/\r?\n/)) {
     const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
     if (m && process.env[m[1]] === undefined) {
       process.env[m[1]] = m[2];
@@ -28,6 +38,11 @@ const NET_IF = process.env.NET_IF ?? "ens17";
 const TOTAL_BYTES = Number(process.env.TOTAL_BYTES ?? 200 * 1024 * 1024 * 1024);
 const SECRET = process.env.SUB_SECRET ?? "";
 const WS_PATH = process.env.WS_PATH ?? "";
+const TRAFFIC_CACHE_TTL_MS = Number(process.env.TRAFFIC_CACHE_TTL_MS ?? 30000);
+
+if (!Number.isFinite(TRAFFIC_CACHE_TTL_MS) || TRAFFIC_CACHE_TTL_MS < 1) {
+  throw new Error("TRAFFIC_CACHE_TTL_MS must be a positive number");
+}
 
 if (!HOST || !SECRET || !WS_PATH) {
   console.error("missing required env: VLESS_HOST / SUB_SECRET / WS_PATH");
@@ -38,6 +53,10 @@ const NODE_VISION = "wr-vps-vision";
 const NODE_WS = "wr-vps-ws";
 const NODE_HY2 = "wr-vps-hy2";
 const HY2_ENABLED = HY2_AUTH !== "";
+const HOST_IP_VERSION = isIP(HOST);
+const HOST_DIRECT_RULE = HOST_IP_VERSION
+  ? `IP-CIDR${HOST_IP_VERSION === 6 ? "6" : ""},${HOST}/${HOST_IP_VERSION === 6 ? 128 : 32},DIRECT,no-resolve`
+  : `DOMAIN,${HOST},DIRECT`;
 
 type Client = { id: string; flow?: string };
 type Inbound = {
@@ -46,8 +65,8 @@ type Inbound = {
   streamSettings?: { network?: string };
 };
 
-function loadInbounds(): Inbound[] {
-  const cfg = JSON.parse(readFileSync(XRAY_CONFIG, "utf8"));
+async function loadInbounds(): Promise<Inbound[]> {
+  const cfg = JSON.parse(await readFile(XRAY_CONFIG, "utf8"));
   return (cfg.inbounds ?? []) as Inbound[];
 }
 
@@ -114,13 +133,13 @@ function fmtGb(bytes: number): string {
 function visionProxy(uuid: string): string {
   return `  - name: "${NODE_VISION}"
     type: vless
-    server: ${HOST}
+    server: ${JSON.stringify(HOST)}
     port: ${VLESS_PORT}
-    uuid: ${uuid}
+    uuid: ${JSON.stringify(uuid)}
     tls: true
     udp: true
     flow: xtls-rprx-vision
-    servername: ${HOST}
+    servername: ${JSON.stringify(HOST)}
     client-fingerprint: chrome
     alpn:
       - h2
@@ -130,17 +149,17 @@ function visionProxy(uuid: string): string {
 function wsProxy(uuid: string): string {
   return `  - name: "${NODE_WS}"
     type: vless
-    server: ${HOST}
+    server: ${JSON.stringify(HOST)}
     port: ${WS_PORT}
-    uuid: ${uuid}
+    uuid: ${JSON.stringify(uuid)}
     tls: true
     udp: true
     network: ws
-    servername: ${HOST}
+    servername: ${JSON.stringify(HOST)}
     ws-opts:
-      path: ${WS_PATH}
+      path: ${JSON.stringify(WS_PATH)}
       headers:
-        Host: ${HOST}
+        Host: ${JSON.stringify(HOST)}
     client-fingerprint: chrome
     alpn:
       - http/1.1`;
@@ -151,14 +170,14 @@ function hy2Proxy(): string {
   const obfs = HY2_OBFS
     ? `
     obfs: salamander
-    obfs-password: ${HY2_OBFS}`
+    obfs-password: ${JSON.stringify(HY2_OBFS)}`
     : "";
   return `  - name: "${NODE_HY2}"
     type: hysteria2
-    server: ${HOST}
+    server: ${JSON.stringify(HOST)}
     port: ${HY2_PORT}
-    password: ${HY2_AUTH}
-    sni: ${HOST}
+    password: ${JSON.stringify(HY2_AUTH)}
+    sni: ${JSON.stringify(HOST)}
     skip-cert-verify: false${obfs}`;
 }
 
@@ -171,18 +190,19 @@ function clashYaml(uuid: string, up: number, down: number): string {
   const usage = `📊 本月已用：${fmtGb(up + down)} GB`;
   const proxies = [hy2Proxy(), visionProxy(uuid), wsProxy(uuid)]
     .filter((block) => block !== "")
-    .concat(
-      `  - { name: "${usage}", type: trojan, server: 127.0.0.1, port: 1, password: info, udp: false }`,
-    )
     .join("\n\n");
   const nodes = nodeNames().join(", ");
 
-  return `mixed-port: 7890
+  return `# ${usage}
+mixed-port: 7890
 allow-lan: false
 mode: rule
 log-level: info
 unified-delay: true
 tcp-concurrent: true
+
+profile:
+  store-selected: true
 
 dns:
   enable: true
@@ -199,14 +219,28 @@ ${proxies}
 proxy-groups:
   - name: 节点选择
     type: select
-    proxies: [自动选择, ${nodes}, "${usage}", DIRECT]
+    proxies: [故障转移, 自动选择, ${nodes}, DIRECT]
   - name: 自动选择
     type: url-test
     proxies: [${nodes}]
-    url: 'http://cp.cloudflare.com'
+    url: 'https://www.gstatic.com/generate_204'
     interval: 300
+    tolerance: 50
+    timeout: 5000
+    expected-status: 204
+    lazy: true
+  - name: 故障转移
+    type: fallback
+    proxies: [${nodes}]
+    url: 'https://www.gstatic.com/generate_204'
+    interval: 60
+    timeout: 5000
+    max-failed-times: 2
+    expected-status: 204
+    lazy: true
 
 rules:
+  - ${JSON.stringify(HOST_DIRECT_RULE)}
   - GEOIP,LAN,DIRECT,no-resolve
   - GEOSITE,CN,DIRECT
   - GEOIP,CN,DIRECT
@@ -218,19 +252,25 @@ function base64Links(uuid: string): string {
   return Buffer.from(shareLinks(uuid).join("\n"), "utf8").toString("base64");
 }
 
-function vnstatBytes(): { up: number; down: number } | null {
-  const out = execFileSync("/usr/bin/vnstat", ["--json", "m", "1", "-i", NET_IF], {
+type Traffic = { up: number; down: number };
+const execFileAsync = promisify(execFile);
+
+async function vnstatBytes(): Promise<Traffic | null> {
+  const { stdout } = await execFileAsync("vnstat", ["--json", "m", "1", "-i", NET_IF], {
     encoding: "utf8",
     timeout: 5000,
   });
-  const month = JSON.parse(out).interfaces?.[0]?.traffic?.month?.[0];
+  const month = JSON.parse(stdout).interfaces?.[0]?.traffic?.month?.[0];
   if (!month) return null;
+  if (![month.rx, month.tx].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+    return null;
+  }
   return { up: month.rx ?? 0, down: month.tx ?? 0 };
 }
 
-function procNetDevBytes(): { up: number; down: number } | null {
-  for (const line of readFileSync("/proc/net/dev", "utf8").split("\n")) {
-    const m = line.match(/^\s*([a-z0-9]+):\s+(\d+)\s+(?:\d+\s+){7}(\d+)/);
+async function procNetDevBytes(): Promise<Traffic | null> {
+  for (const line of (await readFile("/proc/net/dev", "utf8")).split("\n")) {
+    const m = line.match(/^\s*([^\s:]+):\s+(\d+)\s+(?:\d+\s+){7}(\d+)/);
     if (m && m[1] === NET_IF) {
       return { up: Number(m[2]), down: Number(m[3]) };
     }
@@ -238,67 +278,102 @@ function procNetDevBytes(): { up: number; down: number } | null {
   return null;
 }
 
-function trafficBytes(): { up: number; down: number } {
-  for (const read of [vnstatBytes, procNetDevBytes]) {
-    try {
-      const bytes = read();
-      if (bytes) return bytes;
-    } catch {}
-  }
+let cachedTraffic: Traffic | null = null;
+let trafficUpdatedAt = 0;
+let trafficRefresh: Promise<Traffic> | null = null;
+
+async function readTraffic(): Promise<Traffic> {
+  try {
+    const bytes = await vnstatBytes();
+    if (bytes) return bytes;
+  } catch {}
+  if (cachedTraffic) return cachedTraffic;
+  try {
+    const bytes = await procNetDevBytes();
+    if (bytes) return bytes;
+  } catch {}
   return { up: 0, down: 0 };
 }
 
+function refreshTraffic(): Promise<Traffic> {
+  if (!trafficRefresh) {
+    trafficRefresh = readTraffic().then((bytes) => {
+      cachedTraffic = bytes;
+      trafficUpdatedAt = Date.now();
+      return bytes;
+    }).finally(() => { trafficRefresh = null; });
+  }
+  return trafficRefresh;
+}
+
+async function trafficBytes(): Promise<Traffic> {
+  if (!cachedTraffic) return refreshTraffic();
+  if (Date.now() - trafficUpdatedAt >= TRAFFIC_CACHE_TTL_MS) void refreshTraffic();
+  return cachedTraffic;
+}
+
 const server = createServer({ cert: readFileSync(CERT), key: readFileSync(KEY) }, (req, res) => {
-  try {
-    serve(req.url, req.headers["user-agent"], res);
-  } catch (error) {
-    console.error("subscription request failed", error);
+  void serve(req.url, req.headers["user-agent"], req.method, res).catch(() => {
+    console.error("subscription request failed");
     if (!res.headersSent) {
       res.writeHead(500).end();
     }
-  }
+  });
 });
 
-function serve(
+async function serve(
   pathname: string | undefined,
   userAgent: string | undefined,
+  method: string | undefined,
   res: ServerResponse,
-): void {
+): Promise<void> {
+  res.setHeader("Cache-Control", "private, no-store");
   const url = new URL(pathname ?? "/", `https://${HOST}`);
   if (!SECRET || (url.pathname !== `/${SECRET}/sub` && url.pathname !== `/${SECRET}/vless`)) {
     res.writeHead(404).end();
     return;
   }
-  const uuid = uuidOf(loadInbounds());
+  if (method !== "GET" && method !== "HEAD") {
+    res.writeHead(405, { Allow: "GET, HEAD" }).end();
+    return;
+  }
+  const ua = (userAgent ?? "").toLowerCase();
+  const format = url.pathname.endsWith("/vless") ? "links" :
+    url.searchParams.get("format") ??
+    (["clash", "mihomo", "verge"].some((client) => ua.includes(client)) ? "clash" : "base64");
+  if (!["clash", "base64", "links"].includes(format)) {
+    res.writeHead(400).end("format must be clash, base64 or links\n");
+    return;
+  }
+  const uuid = uuidOf(await loadInbounds());
   if (!uuid) {
     res.writeHead(500).end();
     return;
   }
-  const { up, down } = trafficBytes();
-  const userinfo = `upload=${up}; download=${down}; total=${TOTAL_BYTES}; expire=0`;
-  const ua = (userAgent ?? "").toLowerCase();
-
-  if (url.pathname.endsWith("/vless")) {
+  if (format === "links") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end(shareLinks(uuid).join("\n") + "\n");
+    res.end(method === "HEAD" ? undefined : shareLinks(uuid).join("\n") + "\n");
     return;
   }
 
-  if (ua.includes("clash") || ua.includes("mihomo") || ua.includes("verge")) {
+  const { up, down } = await trafficBytes();
+  const userinfo = `upload=${up}; download=${down}; total=${TOTAL_BYTES}; expire=0`;
+
+  if (format === "clash") {
     res.writeHead(200, {
       "Content-Type": "text/yaml; charset=utf-8",
       "subscription-userinfo": userinfo,
       "profile-update-interval": "1",
       "content-disposition": `attachment; filename*=UTF-8''wr-vps.yaml`,
     });
-    res.end(clashYaml(uuid, up, down));
+    res.end(method === "HEAD" ? undefined : clashYaml(uuid, up, down));
   } else {
     res.writeHead(200, {
       "Content-Type": "text/plain; charset=utf-8",
       "subscription-userinfo": userinfo,
       "profile-update-interval": "1",
     });
-    res.end(base64Links(uuid));
+    res.end(method === "HEAD" ? undefined : base64Links(uuid));
   }
 }
 
