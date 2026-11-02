@@ -1,5 +1,43 @@
 # 服务器安全加固方案
 
+## 2026-11-03 增量核验与当前配置
+
+本轮针对「持有代理链接的人能否访问或攻击 VPS」做了真实认证代理测试。结果和范围见 [脱敏证据](security-audit-2026-11-03.json)。代理链接是通行凭证，不是 SSH 管理密钥；持有人仍可消耗代理带宽、向公网发起连接。不存在“拿到链接也绝对无法攻击”的保证。
+
+已实施并验证：
+
+- SSH 配置 `/etc/ssh/sshd_config.d/00-vless-key-only.conf` 明确要求 `AuthenticationMethods publickey`，关闭密码、键盘交互和空密码登录，root 为 `prohibit-password`。两把用户确认的公钥均保留；新连接已验证本机密钥可用，禁用公钥后的密码连接被拒绝。中途误撤第二把的操作已纠正，恢复公钥与原授权指纹完全一致；本记录不包含公钥或私钥内容。
+- Hysteria2 基线实测可以访问 `127.0.0.1`、`localhost` 和 IPv4-mapped 回环地址。回退到旧配置后的补充基线还确认三条代理都能读取服务器自身的 SSH banner。现已添加 Xray IP 路由黑洞与 Hysteria2 ACL，拒绝本机、内网、链路本地、云元数据、组播及服务器自身地址。
+- UFW 的 IPv4 / IPv6 `before` 规则对 `xray` 服务组增加出站隔离，放在原有回环放行之前。仅豁免 conntrack 的 `REPLY` 方向，避免已建立的原方向私网连接绕过；只为系统实际使用的本地 DNS stub 放行 TCP/UDP 53。代理用户到 stub 的请求仍被应用 ACL 拒绝。root 的 SSH 管理与 ACME 不受该服务组出站限制。
+- 三个服务使用独立 UID：`xray`、`vless-hysteria`、`vless-sub`，共同主组为 `xray`。移除 Xray 的 `CAP_NET_ADMIN` / `CAP_NET_RAW`，仅保留绑定 443 所需的 `CAP_NET_BIND_SERVICE`；另两服务能力集合为空。已检查运行进程的实际 CapEff / CapPrm / CapBnd / CapAmb。
+- 三服务启用只读系统、隐藏家目录、独立临时目录、隔离设备及内核配置保护；Xray / Hysteria2 内存上限各 512 MiB，订阅服务 256 MiB，TasksMax 128。服务不可写 TLS 密钥及证书目录。
+- 证书目录归 `root:xray 0750`，证书与私钥为 `root:xray 0640`。续期正式登记的 reload hook 是 root 所有、0700 的 `/usr/local/sbin/vless-reload-certs`，修复权限后重启三个服务。已通过 `acme.sh --home /root/.acme.sh --install-cert` 实际执行该钩子并验证订阅 TLS。
+
+验收结果：
+
+- 19 项有效代理断言通过：三条线路的公网 HTTPS 204 和证书校验、回环 IP / 域名 / 映射地址拒绝、自身 SSH 拒绝、错误凭证拒绝，以及已有可达基线的 Hy2 UDP 拒绝。
+- 对三个服务账号分别绕开应用层，直接建立 TCP/UDP 套接字；本机、映射回环、RFC1918、元数据及本机公网 SSH 均被内核拒绝，系统 DNS 仍可用，三服务 UID 不同。
+- IPv6 规则已安装并通过原生语法校验；此 VPS 未配置 `::1`，未将纯 IPv6 canary 记为通过。VLESS UDP 没有成功的代理基线，相关超时不计入上述 19 项；原始 UDP 的前后对照已单独验证。
+- 首次部署在 transient systemd 环境下执行 acme.sh 返回失败，触发自动回退；补充显式 `--home` 后重试、部署及验收成功。首次命令的原始输出未完整保留，不把环境推测当作已证明根因。回退直到语义验收通过后才取消，包含完整证书/私钥配对恢复。
+
+2026-11-03 已按用户确认完成 VPS 重启，运行内核从 `6.8.0-48-generic` 升为 `6.8.0-147-generic`，已安装的新内核更新生效。重启后再次通过 19 项代理断言和三账户内核出站隔离复查；SSH 两把公钥文件与重启前逐字节一致，仍只允许公钥认证。三个代理/订阅服务、UFW 与 fail2ban 均自动启动，BBR 和 16 MB UDP 缓冲设置保留。纯 IPv6 与 VLESS UDP 的原有验证限制仍保留。
+
+维护要点：
+
+- `deploy/vless-egress-guard --install` 仅供 root 在已启用 UFW 的服务器执行，会验证并持久化两族出站规则；不改变入站白名单。无参数只检查两个过滤链跳转是否已安装，并非完整安全审计。
+- Xray / Hy2 应用 ACL 不要使用 `::ffff:0:0/96`：Go 的 `net.IPNet` 会把它解释为 IPv4 `/0`，误封所有 IPv4 公网。应用用 IPv4 私网规则覆盖映射地址；该 IPv6 前缀仅保留在内核 ip6tables 规则。
+- 服务账号须为锁定、无 home、`/usr/sbin/nologin` 的系统账号。通用沙箱文件部署为各 unit 的 `90-vless-hardening.conf`；`91-vless-identity.conf` 设置各自 User，Xray 在能力清空后单独恢复 BIND，Go 代理启用 MemoryDenyWriteExecute，Bun 订阅服务保留 JIT 并覆盖 MemoryMax 为 256M。
+- 管理 SSH 应直连服务器地址；通过代理回连自身 SSH 会被拒绝。订阅中的服务器地址直连规则已提供该路径。
+- 服务虽分离 UID，仍可读取共享组内凭证。链路认证、进程隔离和资源上限不能消除所有软件漏洞或公网 DDoS 风险；代理协议本身的授权也不能限制已授权者所有公网行为。`subscription-userinfo` 的 total 是展示值，不是强制流量配额。
+- 链接泄露需同时撤销订阅路径密钥、VLESS UUID 和 Hy2 认证密码；现有 `vless-url` 只换 VLESS UUID，不能单独撤销泄露的 Hy2 或订阅链接。本次未轮换仍在使用的代理凭证。
+
+依据：[Hysteria ACL](https://v2.hysteria.network/docs/advanced/ACL/)、[Xray 路由](https://xtls.github.io/config/routing.html)。已核对官方公告：Hy2 2.13.0 高于 [UDP ACL 绕过](https://github.com/HyNetworks/hysteria/security/advisories/GHSA-vgrc-hq28-p3xp) 和 [小数据报崩溃](https://github.com/HyNetworks/hysteria/security/advisories/GHSA-qh5x-rfwf-rvfv) 的 2.9.2 修复版本；Xray 26.10.21 高于 [证书固定验证问题](https://github.com/XTLS/Xray-core/security/advisories/GHSA-5wf9-h793-w73c) 的 26.7.11 修复版本。该核对不等于不存在其他漏洞。
+
+## 2026-10-29 加固历史
+
+下文保留历史验收及回退记录；其中服务 UID、证书归属及出站策略已由上面的当前配置替代，不应直接套用旧回退恢复密码访问或共享服务 UID。
+
+
 > 状态：已实施
 > 级别：中（命中「不可逆存量变更」判据：防火墙上线、SSH 认证策略、系统包升级均可导致失联或服务中断）
 > 日期：2026-10-29
@@ -138,7 +176,7 @@
 | `systemctl is-active xray hysteria vless-sub` | 三者皆 `active` | 服务契约 |
 | `curl -sk -A clash-verge https://127.0.0.1:8443/<SECRET>/sub` | 含 `wr-vps-hy2`/`wr-vps-vision`/`wr-vps-ws` | 订阅契约 |
 | 公网 `curl https://<HOST>:8443/.../sub`（校验证书） | `http=200` 且 `ssl_verify_result=0` | TLS 契约 |
-| `curl -x 127.0.0.1:7897 cdn-cgi/trace` | `ip=103.248.228.194` | 代理数据面 |
+| `curl -x 127.0.0.1:7897 cdn-cgi/trace` | `ip=HOST_PLACEHOLDER` | 代理数据面 |
 | `ssh wr`（BatchMode） | 成功 | 可达性契约 |
 
 **边界与异常**
@@ -211,7 +249,7 @@
    已改为 `chown root:root` + `chmod 755`，并加上 `.env` 的 `root:xray 0640` 护栏；
    同时删除已失效的 `deploy:sub`（线上不再保留 `.ts`，它会把无用文件推上去并重启服务）。
 2. **fail2ban 会封掉服务器自己**。实测全部 153 次 SSH 成功登录的来源都是
-   `103.248.228.194`（经代理回连，sshd 看到的是服务器自身出口），而 fail2ban 已把它记了
+   `HOST_PLACEHOLDER`（经代理回连，sshd 看到的是服务器自身出口），而 fail2ban 已把它记了
    3 次失败。按 `maxretry=5`，再 2 次就把自己封在门外，且只能走服务商控制台恢复。
    已加 `ignoreip` 含该地址，`mode` 从 `aggressive` 退回 `normal`。
 3. **回滚步骤缺失且带优先级陷阱**。方案声称“每阶段可回滚”但未写命令；且只还原
@@ -298,6 +336,8 @@ ufw disable
 - [x] 如实报告：未完成项（内核重启）与遗留项
 
 遗留项（未在本次处理，均已登记归属）：
+
+注：以下历史遗留项中的新内核和旧库运行问题，已随 2026-11-03 重启解决；当前状态以上方增量核验为准。
 
 1. **新内核未生效**：`6.8.0-147` 已安装，运行中仍是 `6.8.0-48`。需重启主机，由用户择机执行。
 1b. **`systemd-logind` / `dbus-daemon` 仍跑旧库**：本轮 `libc6`、`libssl3t64`、`libexpat`

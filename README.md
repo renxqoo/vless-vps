@@ -31,6 +31,10 @@
 | `deploy/hysteria.service.example` | Hysteria2 systemd 单元模板 |
 | `deploy/99-vless-udp.conf` | Hysteria2 所需的 16 MB UDP 缓冲上限（按需分配） |
 | `deploy/vless-status` | 只读健康检查：服务、证书、UDP 缓冲、TLS 校验与订阅完整性，不输出凭证 |
+| `deploy/vless-egress-guard` | 为代理服务组安装持久 UFW IPv4/IPv6 出站隔离，保留服务回复和系统 DNS |
+| `deploy/vless-service-hardening.conf` | systemd 通用沙箱和资源上限；Xray 另需仅授予绑定低端口的能力 |
+| `deploy/vless-reload-certs` | root 执行的证书权限修复及三服务重载钩子 |
+| `deploy/ssh-key-only.conf.example` | SSH 仅公钥认证，禁用密码与键盘交互 |
 | `.env.example` | 环境变量清单 |
 
 ## 配置
@@ -55,13 +59,13 @@ Hysteria2 节点由三个变量控制：`HY2_AUTH` 留空则订阅里不出现�
 
 ## 部署要点
 
-1. Xray 官方脚本安装；证书用 acme.sh `--certificate-profile shortlived` 签 IP 证书（Let's Encrypt，6 天有效期，ARI 自动排期续期），`--install-cert --reloadcmd "chown xray:xray /etc/xray-certs/*; chmod 600 /etc/xray-certs/*; systemctl restart xray; systemctl restart hysteria; systemctl restart vless-sub"` 挂钩加载新证书，三个服务共用同一份证书。`vless-sub` 只在启动时 `readFileSync` 证书并交给 `createServer`，不重启就会一直用旧证书，续期后订阅端点会返回过期证书导致客户端拉订阅失败，所以钩子里必须包含它。当前使用 HTTP-01 standalone 验证，必须放行 `80/tcp`，该端口只在验证时临时监听；单独配置 cron 而不放行端口会导致续期一直失败。参考 [acme.sh standalone 文档](https://github.com/acmesh-official/acme.sh#4-use-standalone-server-to-issue-cert)。
-2. Bun 装在 `/usr/local/bin/bun`；服务器运行 `bun run /usr/local/bin/vless-sub-server.js`（`bun build` 产物，`deploy:build` 一键推进）；密钥在 `WorkingDirectory` 的 `.env`（`root:xray 0640`）。服务以 `xray` 用户运行，所以 bun 不能放在 `/root`（`0700`，`xray` 无法穿越）。
+1. Xray 官方脚本安装；证书用 acme.sh `--certificate-profile shortlived` 签 IP 证书（Let's Encrypt，6 天有效期，ARI 自动排期续期），`--install-cert --reloadcmd /usr/local/sbin/vless-reload-certs` 挂钩加载新证书，三个服务共用同一份证书。`vless-sub` 只在启动时 `readFileSync` 证书并交给 `createServer`，不重启就会一直用旧证书，续期后订阅端点会返回过期证书导致客户端拉订阅失败，所以钩子里必须包含它。当前使用 HTTP-01 standalone 验证，必须放行 `80/tcp`，该端口只在验证时临时监听；单独配置 cron 而不放行端口会导致续期一直失败。参考 [acme.sh standalone 文档](https://github.com/acmesh-official/acme.sh#4-use-standalone-server-to-issue-cert)。
+2. Bun 装在 `/usr/local/bin/bun`；服务器运行 `bun run /usr/local/bin/vless-sub-server.js`（`bun build` 产物，`deploy:build` 一键推进）；密钥在 `WorkingDirectory` 的 `.env`（`root:xray 0640`）。订阅服务以 `vless-sub` 用户、`xray` 组运行，所以 bun 不能放在 `/root`（`0700`，服务用户无法穿越）。
 3. 流量统计依赖 `vnstat`（接口名 `NET_IF`）。
 4. 换号：服务器执行 `vless-url`，输出新分享链接和订阅地址；客户端更新订阅即可。Hysteria2 用密码认证，不受 UUID 换号影响。
-5. Hysteria2 安装：下载 `hysteria-linux-amd64` 到 `/usr/local/bin/hysteria`，按 `deploy/hysteria-config.example.yaml` 写 `/etc/hysteria/config.yaml`（600，`root` 所有但属组可读时用 `root:xray` + `0640`，因为服务以 `xray` 用户运行），用 `deploy/hysteria.service.example` 建 unit 并 `systemctl enable --now hysteria`。
-6. 证书与密钥在 `/etc/xray-certs/`，属主 `xray:xray`、权限 600；`hysteria.service` 以 `xray` 用户运行以便读取。
-7. `deploy/` 下所有模板只作参考，不会被任何脚本自动部署；线上真实值在服务器，模板内统一使用 `HOST_PLACEHOLDER` / `UUID_PLACEHOLDER` / `WS_PATH_PLACEHOLDER` 等占位符。安装时手工替换 `HOST_PLACEHOLDER`（IP 证书场景下 `serverName` 必须等于证书 SAN 里的地址），并写入 `/usr/local/etc/xray/config.json`。
+5. Hysteria2 安装：下载 `hysteria-linux-amd64` 到 `/usr/local/bin/hysteria`，按 `deploy/hysteria-config.example.yaml` 写 `/etc/hysteria/config.yaml`（600，`root` 所有但属组可读时用 `root:xray` + `0640`，因为服务以 `vless-hysteria` 用户、`xray` 组运行），用 `deploy/hysteria.service.example` 建 unit 并 `systemctl enable --now hysteria`。
+6. 证书目录为 `root:xray 0750`，证书与私钥均为 `root:xray 0640`。Xray、Hysteria2、订阅服务分别使用 `xray`、`vless-hysteria`、`vless-sub` 用户，主组均为 `xray`，只有读取证书的权限。续期钩子 `/usr/local/sbin/vless-reload-certs` 会恢复该权限并重启三个服务；须先将 `deploy/vless-reload-certs` 安装为 root 所有、0700。服务账号应为无密码、`/usr/sbin/nologin` 的系统账号。
+7. `deploy/` 下所有模板只作参考，不会被任何脚本自动部署；线上真实值在服务器，模板内统一使用 `HOST_PLACEHOLDER` / `HOST_IP_CIDR_PLACEHOLDER` / `UUID_PLACEHOLDER` / `WS_PATH_PLACEHOLDER` 等占位符。安装时手工替换 `HOST_PLACEHOLDER`（IP 证书场景下 `serverName` 必须等于证书 SAN 里的地址），并写入 `/usr/local/etc/xray/config.json`。
 
 ## 性能与日常检查
 
@@ -138,7 +142,10 @@ ICMP 探测分别为 100 发 65 收（5 包/秒）和 20 发 13 收（1 包/秒�
 
 - `SUB_SECRET`、WS path、UUID、`HY2_AUTH`、`HY2_OBFS`、服务器地址均为凭证，仓库内只有占位符；真实值放 `.env`（已 gitignore）。
 - 服务器上真实值在 `/usr/local/bin/.env`、`/usr/local/etc/xray/config.json` 与 `/etc/hysteria/config.yaml`，不要提交。
-- `vless-sub` 仅需读配置与证书，勿以 root 运行（见 `deploy/vless-sub.service.example`）。
+- 代理与订阅服务均以独立非 root 用户运行，服务不可写配置及 TLS 密钥（见服务模板）。
+- 链接等同代理凭证。现已通过应用 ACL 和 UFW 出站规则禁止代理账户访问本机、内网和元数据；不应把链接交给不可信的人。
+- SSH 只允许公钥认证，保留两把经用户确认的公钥。代理客户端应将 VPS 管理地址设为直连；经代理回连 VPS 的 SSH 端口会被拒绝。
+- [2026-11-03 安全核验](docs/security-hardening.md)记录了隔离实测、权限变更及重启后的新内核核验。
 
 ## 安全加固
 
@@ -147,7 +154,7 @@ ICMP 探测分别为 100 发 65 收（5 包/秒）和 20 发 13 收（1 包/秒�
 
 - 入站白名单为 `80/tcp`（证书续期）、`443/tcp`、`2053/tcp`、`8443/tcp`、`2096/udp`、`65455/tcp`；
   增减端口时同步 `ufw` 与本文档；
-- SSH 仅公钥登录（`PasswordAuthentication no`，drop-in 在 `/etc/ssh/sshd_config.d/10-hardening.conf`）；
+- SSH 仅公钥登录（`PasswordAuthentication no`，当前强制仅公钥的 drop-in 在 `/etc/ssh/sshd_config.d/00-vless-key-only.conf`）；
 - `fail2ban` 的 `sshd` jail 必须覆盖 `journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd`。
   默认值是 `sshd.service`，而 Ubuntu 的 unit 名是 `ssh.service`，不覆盖会**静默不生效**
   （`status` 显示 running 但永远抓不到事件）。

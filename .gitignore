@@ -10,6 +10,11 @@
 !deploy/hysteria.service.example
 !deploy/99-vless-udp.conf
 !deploy/vless-status
+!deploy/vless-egress-guard
+!deploy/vless-reload-certs
+!deploy/vless-service-hardening.conf
+!deploy/ssh-key-only.conf.example
+!docs/security-audit-2026-11-03.json
 !README.md
 !.gitignore
 !.env.example

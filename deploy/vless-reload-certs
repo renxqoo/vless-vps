@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+# Shared read access without letting a proxy service replace its TLS keys.
+chown root:xray /etc/xray-certs /etc/xray-certs/fullchain.pem /etc/xray-certs/privkey.pem
+chmod 750 /etc/xray-certs
+chmod 640 /etc/xray-certs/fullchain.pem /etc/xray-certs/privkey.pem
+systemctl restart xray.service hysteria.service vless-sub.service

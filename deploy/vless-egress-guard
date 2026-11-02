@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""Install a UFW egress boundary for the xray service group, without changing INPUT."""
+import argparse
+import grp
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import socket
+import subprocess
+import tempfile
+
+RANGES_V4 = (
+    "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+    "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24",
+    "192.88.99.0/24", "192.168.0.0/16", "198.18.0.0/15",
+    "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4",
+)
+# The mapped IPv6 prefix is for ip6tables only: Go ACL parsers can normalize it to IPv4 /0.
+RANGES_V6 = (
+    "::/96", "::ffff:0:0/96", "64:ff9b::/96", "64:ff9b:1::/48",
+    "100::/64", "2001::/32", "2001:10::/28", "2001:20::/28",
+    "2001:db8::/32", "2002::/16", "fc00::/7", "fe80::/10", "fec0::/10", "ff00::/8",
+)
+BEGIN = "# BEGIN VLESS EGRESS GUARD"
+END = "# END VLESS EGRESS GUARD"
+
+
+def protected_addresses():
+    env = dict(line.split("=", 1) for line in Path("/usr/local/bin/.env").read_text().splitlines()
+               if "=" in line and not line.startswith("#"))
+    host = env["VLESS_HOST"]
+    own = {ipaddress.ip_address(item[4][0]) for item in socket.getaddrinfo(host, None)}
+    interfaces = json.loads(subprocess.check_output(["ip", "-j", "address"], text=True))
+    for interface in interfaces:
+        own.update(ipaddress.ip_address(addr["local"]) for addr in interface.get("addr_info", []))
+    return own
+
+
+def resolver_addresses():
+    text = Path("/etc/resolv.conf").read_text()
+    return {ipaddress.ip_address(value) for value in re.findall(r"^nameserver\s+(\S+)", text, re.M)
+            if not ipaddress.ip_address(value).is_global}
+
+
+def render(original, version, gid, own, resolvers):
+    original = re.sub(r"(?m)^" + re.escape(BEGIN) + r"\n.*?^" + re.escape(END) + r"\n?", "",
+                      original, flags=re.S)
+    chain = "vless-egress" if version == 4 else "vless6-egress"
+    parent = "ufw-before-output" if version == 4 else "ufw6-before-output"
+    rules = [BEGIN, ":" + chain + " - [0:0]",
+             f"-A {parent} -m owner --gid-owner {gid} -j {chain}",
+             f"-A {chain} -m conntrack --ctstate ESTABLISHED,RELATED --ctdir REPLY -j RETURN"]
+    for addr in sorted((a for a in resolvers if a.version == version), key=int):
+        for proto in ("udp", "tcp"):
+            rules.append(f"-A {chain} -d {addr} -p {proto} --dport 53 -j RETURN")
+    destinations = list(RANGES_V4 if version == 4 else RANGES_V6)
+    destinations += [str(a) + ("/32" if version == 4 else "/128")
+                     for a in sorted((a for a in own if a.version == version), key=int)]
+    rules += [f"-A {chain} -d {destination} -j REJECT" for destination in destinations]
+    rules += [f"-A {chain} -m addrtype --dst-type LOCAL -j REJECT",
+              f"-A {chain} -j RETURN", END]
+    # Insert before the first filter rule, including UFW's unconditional loopback accept.
+    start = original.index("*filter")
+    pos = re.search(r"(?m)^-A ", original[start:])
+    if pos is None:
+        raise RuntimeError("UFW filter rules not found")
+    index = start + pos.start()
+    return original[:index] + "\n".join(rules) + "\n" + original[index:]
+
+
+def replace(path, contents):
+    # A temporary sibling preserves atomic replacement on the same filesystem.
+    with tempfile.NamedTemporaryFile("w", dir=path.parent, prefix=".vless-", delete=False) as stream:
+        temporary = Path(stream.name)
+        stream.write(contents)
+    try:
+        os.chown(temporary, 0, 0)
+        temporary.chmod(0o640)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--install", action="store_true", help="validate and install persistent UFW rules")
+    args = parser.parse_args()
+    if os.geteuid() != 0:
+        raise SystemExit("root required")
+    gid = grp.getgrnam("xray").gr_gid
+    if not args.install:
+        checks = []
+        for command, parent, chain in [("iptables", "ufw-before-output", "vless-egress"),
+                                       ("ip6tables", "ufw6-before-output", "vless6-egress")]:
+            result = subprocess.run([command, "-C", parent, "-m", "owner", "--gid-owner",
+                                     str(gid), "-j", chain], capture_output=True)
+            checks.append(result.returncode == 0)
+        print(json.dumps({"ipv4_guard": checks[0], "ipv6_guard": checks[1]}))
+        raise SystemExit(0 if all(checks) else 1)
+    if subprocess.run(["ufw", "status"], capture_output=True, text=True, check=True).stdout.splitlines()[0] != "Status: active":
+        raise SystemExit("UFW must already be active")
+    own, resolvers = protected_addresses(), resolver_addresses()
+    changes = []
+    with tempfile.TemporaryDirectory(prefix="vless-guard-", dir="/run") as temporary:
+        for version, name, command in [(4, "before.rules", "iptables-restore"),
+                                        (6, "before6.rules", "ip6tables-restore")]:
+            path = Path("/etc/ufw") / name
+            original = path.read_text()
+            updated = render(original, version, gid, own, resolvers)
+            stage = Path(temporary) / name
+            stage.write_text(updated)
+            with stage.open("rb") as stream:
+                result = subprocess.run([command, "--test", "--noflush"], stdin=stream, capture_output=True)
+            if result.returncode != 0:
+                raise SystemExit("UFW rule syntax validation failed: " + name)
+            changes.append((path, original, updated))
+        try:
+            for path, original, updated in changes:
+                replace(path, updated)
+            subprocess.run(["ufw", "reload"], check=True, capture_output=True)
+        except Exception:
+            for path, original, updated in changes:
+                replace(path, original)
+            subprocess.run(["ufw", "reload"], capture_output=True)
+            raise
+    print(json.dumps({"installed": True, "service_group": "xray", "protected_address_count": len(own),
+                      "local_dns_exception_count": len(resolvers), "reply_direction_only": True}))
+
+
+if __name__ == "__main__":
+    main()
+

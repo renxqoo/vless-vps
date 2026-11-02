@@ -1,0 +1,1246 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Singapore",
+  "scope": "SSH public-key authentication, authenticated proxy egress isolation, service privileges, TLS renewal permissions; sanitized evidence",
+  "metadata": {
+    "ssh": {
+      "fresh_key_login": true,
+      "authenticationmethods": "publickey",
+      "passwordauthentication": "no",
+      "kbdinteractiveauthentication": "no",
+      "permitrootlogin": "without-password",
+      "authorized_key_count": 2,
+      "second_key_restored_and_matches_original": true
+    },
+    "kernel": {
+      "running": "6.8.0-147-generic",
+      "installed": [
+        "6.8.0-147-generic",
+        "6.8.0-48-generic"
+      ],
+      "grub_default": [
+        "0"
+      ],
+      "running_before_reboot": "6.8.0-48-generic"
+    },
+    "boot_services": {
+      "xray": "enabled",
+      "hysteria": "enabled",
+      "vless-sub": "enabled",
+      "ufw": "enabled",
+      "fail2ban": "enabled"
+    },
+    "rollback_cancelled_after_validation": true,
+    "deployment_attempts": [
+      {
+        "ok": false,
+        "error_type": "RuntimeError",
+        "reason": "command failed: acme.sh",
+        "rolled_back": true
+      }
+    ]
+  },
+  "kernel_before": {
+    "tcp_canary": true,
+    "udp_canary": true
+  },
+  "kernel_after": {
+    "service_checks": {
+      "xray": {
+        "blocked": {
+          "loopback": {
+            "blocked": true,
+            "errno": 111
+          },
+          "mapped-loopback": {
+            "blocked": true,
+            "errno": 111
+          },
+          "metadata": {
+            "blocked": true,
+            "errno": 111
+          },
+          "rfc1918": {
+            "blocked": true,
+            "errno": 111
+          },
+          "own-public-ssh": {
+            "blocked": true,
+            "errno": 111
+          }
+        },
+        "udp_canary_reachable": false,
+        "udp_errno": 1,
+        "dns_resolution_works": true,
+        "can_write_tls_key": false,
+        "can_write_tls_directory": false,
+        "service": {
+          "MainPID": "226279",
+          "MemoryMax": "536870912",
+          "TasksMax": "128",
+          "User": "xray",
+          "Group": "xray",
+          "PrivateDevices": "yes",
+          "ProtectHome": "yes",
+          "ProtectSystem": "strict",
+          "NoNewPrivileges": "yes",
+          "RestrictNamespaces": "yes"
+        },
+        "caps": {
+          "CapEff": "0000000000000400",
+          "CapPrm": "0000000000000400",
+          "CapBnd": "0000000000000400",
+          "CapAmb": "0000000000000400"
+        },
+        "uid": 997,
+        "gid": 997
+      },
+      "hysteria": {
+        "blocked": {
+          "loopback": {
+            "blocked": true,
+            "errno": 111
+          },
+          "mapped-loopback": {
+            "blocked": true,
+            "errno": 111
+          },
+          "metadata": {
+            "blocked": true,
+            "errno": 111
+          },
+          "rfc1918": {
+            "blocked": true,
+            "errno": 111
+          },
+          "own-public-ssh": {
+            "blocked": true,
+            "errno": 111
+          }
+        },
+        "udp_canary_reachable": false,
+        "udp_errno": 1,
+        "dns_resolution_works": true,
+        "can_write_tls_key": false,
+        "can_write_tls_directory": false,
+        "service": {
+          "MainPID": "226280",
+          "MemoryMax": "536870912",
+          "TasksMax": "128",
+          "User": "vless-hysteria",
+          "Group": "xray",
+          "PrivateDevices": "yes",
+          "ProtectHome": "yes",
+          "ProtectSystem": "strict",
+          "NoNewPrivileges": "yes",
+          "RestrictNamespaces": "yes"
+        },
+        "caps": {
+          "CapEff": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "CapBnd": "0000000000000000",
+          "CapAmb": "0000000000000000"
+        },
+        "uid": 996,
+        "gid": 997
+      },
+      "vless-sub": {
+        "blocked": {
+          "loopback": {
+            "blocked": true,
+            "errno": 111
+          },
+          "mapped-loopback": {
+            "blocked": true,
+            "errno": 111
+          },
+          "metadata": {
+            "blocked": true,
+            "errno": 111
+          },
+          "rfc1918": {
+            "blocked": true,
+            "errno": 111
+          },
+          "own-public-ssh": {
+            "blocked": true,
+            "errno": 111
+          }
+        },
+        "udp_canary_reachable": false,
+        "udp_errno": 1,
+        "dns_resolution_works": true,
+        "can_write_tls_key": false,
+        "can_write_tls_directory": false,
+        "service": {
+          "MainPID": "226281",
+          "MemoryMax": "268435456",
+          "TasksMax": "128",
+          "User": "vless-sub",
+          "Group": "xray",
+          "PrivateDevices": "yes",
+          "ProtectHome": "yes",
+          "ProtectSystem": "strict",
+          "NoNewPrivileges": "yes",
+          "RestrictNamespaces": "yes"
+        },
+        "caps": {
+          "CapEff": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "CapBnd": "0000000000000000",
+          "CapAmb": "0000000000000000"
+        },
+        "uid": 995,
+        "gid": 997
+      }
+    },
+    "certificate_permissions": {
+      "xray-certs": {
+        "uid": 0,
+        "gid": 997,
+        "mode": "0o750"
+      },
+      "fullchain.pem": {
+        "uid": 0,
+        "gid": 997,
+        "mode": "0o640"
+      },
+      "privkey.pem": {
+        "uid": 0,
+        "gid": 997,
+        "mode": "0o640"
+      }
+    },
+    "acme_reload_hook_registered": true,
+    "guard_check": {
+      "ipv4_guard": true,
+      "ipv6_guard": true
+    },
+    "ssh_fresh_login": true,
+    "all_pass": true
+  },
+  "rollback_baseline_service_checks": {
+    "xray": {
+      "tcp_canary_reachable": true,
+      "udp_canary_reachable": true,
+      "dns_resolution_works": true,
+      "can_write_tls_key": true,
+      "can_write_tls_directory": true,
+      "service": {
+        "MainPID": "225108",
+        "MemoryMax": "infinity",
+        "TasksMax": "2276",
+        "User": "xray",
+        "Group": "xray",
+        "ProtectHome": "no",
+        "ProtectSystem": "no",
+        "NoNewPrivileges": "yes"
+      },
+      "caps": {
+        "CapEff": "0000000000003400",
+        "CapPrm": "0000000000003400",
+        "CapBnd": "0000000000003400",
+        "CapAmb": "0000000000003400"
+      },
+      "uid": 997,
+      "gid": 997
+    },
+    "hysteria": {
+      "tcp_canary_reachable": true,
+      "udp_canary_reachable": true,
+      "dns_resolution_works": true,
+      "can_write_tls_key": true,
+      "can_write_tls_directory": true,
+      "service": {
+        "MainPID": "225109",
+        "MemoryMax": "infinity",
+        "TasksMax": "2276",
+        "User": "xray",
+        "Group": "xray",
+        "ProtectHome": "yes",
+        "ProtectSystem": "strict",
+        "NoNewPrivileges": "yes"
+      },
+      "caps": {
+        "CapEff": "0000000000000000",
+        "CapPrm": "0000000000000000",
+        "CapBnd": "0000000000000400",
+        "CapAmb": "0000000000000000"
+      },
+      "uid": 997,
+      "gid": 997
+    },
+    "vless-sub": {
+      "tcp_canary_reachable": true,
+      "udp_canary_reachable": true,
+      "dns_resolution_works": true,
+      "can_write_tls_key": true,
+      "can_write_tls_directory": true,
+      "service": {
+        "MainPID": "225110",
+        "MemoryMax": "infinity",
+        "TasksMax": "2276",
+        "User": "xray",
+        "Group": "xray",
+        "ProtectHome": "yes",
+        "ProtectSystem": "strict",
+        "NoNewPrivileges": "yes"
+      },
+      "caps": {
+        "CapEff": "0000000000000000",
+        "CapPrm": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "CapAmb": "0000000000000000"
+      },
+      "uid": 997,
+      "gid": 997
+    }
+  },
+  "deployment_result": {
+    "ok": true,
+    "subscription_health": "OK subscription: HTTP 200, 3 expected nodes, 87.7 ms, TLS verified",
+    "rollback_armed_seconds": 600
+  },
+  "proxy_baseline": {
+    "phase": "before",
+    "started_at": "2026-11-02T16:04:52.650749+00:00",
+    "client_core_version": "Mihomo Meta v1.19.33 darwin amd64 with go1.22.12 Wed Oct 21 16:47:50 UTC 2026",
+    "interface": "en1",
+    "policy": "single explicit MATCH rule, no client-side DIRECT exclusions",
+    "ipv6_canary_available": false,
+    "cases": [
+      {
+        "node": "wr-vps-hy2",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "loopback_ipv4_tcp",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "localhost_domain_tcp",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "mapped_ipv6_tcp",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "loopback_ipv4_udp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": "TimeoutError"
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "loopback_ipv4_tcp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "localhost_domain_tcp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "mapped_ipv6_tcp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "loopback_ipv4_udp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": "TimeoutError"
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "loopback_ipv4_tcp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "localhost_domain_tcp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "mapped_ipv6_tcp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "loopback_ipv4_udp",
+        "reached": false,
+        "expected": true,
+        "pass": false,
+        "error_type": "TimeoutError"
+      }
+    ],
+    "temporary_clients_stopped": true,
+    "finished_at": "2026-11-02T16:05:30.146638+00:00",
+    "all_pass": false
+  },
+  "rolled_back_attempt_proxy_baseline": {
+    "phase": "after",
+    "started_at": "2026-11-02T16:25:00.782568+00:00",
+    "client_core_version": "Mihomo Meta v1.19.33 darwin amd64 with go1.22.12 Wed Oct 21 16:47:50 UTC 2026",
+    "interface": "en1",
+    "policy": "single explicit MATCH rule, no client-side DIRECT exclusions",
+    "ipv6_canary_available": false,
+    "cases": [
+      {
+        "node": "wr-vps-hy2",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "loopback_ipv4_tcp",
+        "reached": true,
+        "expected": false,
+        "pass": false,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "localhost_domain_tcp",
+        "reached": true,
+        "expected": false,
+        "pass": false,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "mapped_ipv6_tcp",
+        "reached": true,
+        "expected": false,
+        "pass": false,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "loopback_ipv4_udp",
+        "reached": true,
+        "expected": false,
+        "pass": null,
+        "validated": false,
+        "error_type": null,
+        "limitation": "proxy UDP path had no successful baseline; kernel UDP contrast tested separately"
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "own_public_ssh_banner",
+        "reached": true,
+        "expected": false,
+        "pass": false,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "loopback_ipv4_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "localhost_domain_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "mapped_ipv6_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "loopback_ipv4_udp",
+        "reached": false,
+        "expected": false,
+        "pass": null,
+        "validated": false,
+        "error_type": "TimeoutError",
+        "limitation": "proxy UDP path had no successful baseline; kernel UDP contrast tested separately"
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "own_public_ssh_banner",
+        "reached": true,
+        "expected": false,
+        "pass": false,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "loopback_ipv4_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "localhost_domain_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "mapped_ipv6_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "loopback_ipv4_udp",
+        "reached": false,
+        "expected": false,
+        "pass": null,
+        "validated": false,
+        "error_type": "TimeoutError",
+        "limitation": "proxy UDP path had no successful baseline; kernel UDP contrast tested separately"
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "own_public_ssh_banner",
+        "reached": true,
+        "expected": false,
+        "pass": false,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "invalid_credential_public_https",
+        "reached": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "invalid_credential_public_https",
+        "reached": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "invalid_credential_public_https",
+        "reached": false,
+        "expected": false,
+        "pass": true
+      }
+    ],
+    "temporary_clients_stopped": true,
+    "finished_at": "2026-11-02T16:25:38.142026+00:00",
+    "all_pass": false
+  },
+  "proxy_after": {
+    "phase": "after",
+    "started_at": "2026-11-02T16:31:05.344457+00:00",
+    "client_core_version": "Mihomo Meta v1.19.33 darwin amd64 with go1.22.12 Wed Oct 21 16:47:50 UTC 2026",
+    "interface": "en1",
+    "policy": "single explicit MATCH rule, no client-side DIRECT exclusions",
+    "ipv6_canary_available": false,
+    "cases": [
+      {
+        "node": "wr-vps-hy2",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "loopback_ipv4_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "localhost_domain_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "mapped_ipv6_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "loopback_ipv4_udp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": "TimeoutError"
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "own_public_ssh_banner",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "loopback_ipv4_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "localhost_domain_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "mapped_ipv6_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "loopback_ipv4_udp",
+        "reached": false,
+        "expected": false,
+        "pass": null,
+        "validated": false,
+        "error_type": "TimeoutError",
+        "limitation": "proxy UDP path had no successful baseline; kernel UDP contrast tested separately"
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "own_public_ssh_banner",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "public_https",
+        "reached": true,
+        "expected": true,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "loopback_ipv4_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "localhost_domain_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "mapped_ipv6_tcp",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "loopback_ipv4_udp",
+        "reached": false,
+        "expected": false,
+        "pass": null,
+        "validated": false,
+        "error_type": "TimeoutError",
+        "limitation": "proxy UDP path had no successful baseline; kernel UDP contrast tested separately"
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "own_public_ssh_banner",
+        "reached": false,
+        "expected": false,
+        "pass": true,
+        "validated": true,
+        "error_type": null
+      },
+      {
+        "node": "wr-vps-hy2",
+        "test": "invalid_credential_public_https",
+        "reached": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "node": "wr-vps-vision",
+        "test": "invalid_credential_public_https",
+        "reached": false,
+        "expected": false,
+        "pass": true
+      },
+      {
+        "node": "wr-vps-ws",
+        "test": "invalid_credential_public_https",
+        "reached": false,
+        "expected": false,
+        "pass": true
+      }
+    ],
+    "temporary_clients_stopped": true,
+    "finished_at": "2026-11-02T16:31:15.263616+00:00",
+    "all_pass": true
+  },
+  "validated_proxy_cases": 19,
+  "findings": {
+    "hy2_loopback_access_reproduced": true,
+    "all_three_nodes_could_reach_own_ssh_banner_before": true,
+    "xray_private_tcp_canary_not_reproduced_before": true,
+    "unnecessary_xray_net_admin_net_raw_removed": true,
+    "shared_uid_replaced_by_three_service_uids": true,
+    "tls_files_now_root_owned_and_read_only_to_services": true,
+    "password_and_keyboard_authentication_disabled": true,
+    "two_owner_approved_public_keys_authorized": true
+  },
+  "review": {
+    "independent_read_only": true,
+    "resolved": [
+      "Go IPNet turns IPv4-mapped /96 into IPv4 /0: removed from application ACLs; kept in ip6tables, IPv4 CIDRs protect mapped private addresses",
+      "Rollback now restores both certificate and private-key contents, not only metadata",
+      "conntrack exception restricted to REPLY direction",
+      "Capability lists cleared before granting only Xray NET_BIND_SERVICE"
+    ],
+    "deployment_retry": "First acme.sh invocation returned failure and deployment automatically rolled back. Original command output was not fully retained; retry with explicit --home succeeded. This does not independently establish the exact first-failure cause."
+  },
+  "limitations": [
+    "No configured ::1 address on this VPS, so native IPv6 loopback canary could not be run; IPv6 rules passed native ip6tables syntax validation and are installed.",
+    "VLESS proxy UDP canaries had no successful baseline and are excluded from validated proxy-case totals; group-level raw UDP was reachable before and blocked after for all services. Hysteria2 UDP was positively reachable in rollback baseline and blocked after.",
+    "Independent review and bounded tests do not prove absence of all vulnerabilities, intrusion, or DDoS risk.",
+    "Services have separate UIDs but share a read-only credential group; compromise of one service can still expose group-readable credentials.",
+    "Proxy links remain bearer credentials and permit public Internet usage/traffic consumption; full revocation requires rotating subscription path, VLESS UUID, and Hysteria authentication password."
+  ],
+  "kernel_reboot": {
+    "required": false,
+    "authorized": true,
+    "completed": true,
+    "previous_kernel": "6.8.0-48-generic",
+    "new_kernel": "6.8.0-147-generic",
+    "boot_id_changed": true,
+    "authorized_keys_unchanged": true,
+    "verified_at_singapore": "2026-11-03T01:06:54.888588+08:00",
+    "all_boot_services_active": true,
+    "system_checks": {
+      "verified_at_singapore": "2026-11-03T01:06:54.888588+08:00",
+      "kernel": "6.8.0-147-generic",
+      "positive_canary_controls": {
+        "root_tcp": true,
+        "root_udp": true
+      },
+      "service_checks": {
+        "xray": {
+          "blocked": {
+            "loopback": {
+              "blocked": true,
+              "errno": 111
+            },
+            "mapped-loopback": {
+              "blocked": true,
+              "errno": 111
+            },
+            "private-network": {
+              "blocked": true,
+              "errno": 111
+            },
+            "metadata": {
+              "blocked": true,
+              "errno": 111
+            },
+            "own-ssh": {
+              "blocked": true,
+              "errno": 111
+            }
+          },
+          "udp_blocked": true,
+          "udp_errno": 1,
+          "dns_works": true,
+          "can_write_key": false,
+          "can_write_cert_dir": false,
+          "properties": {
+            "MainPID": "802",
+            "MemoryMax": "536870912",
+            "TasksMax": "128",
+            "User": "xray",
+            "Group": "xray",
+            "PrivateDevices": "yes",
+            "ProtectHome": "yes",
+            "ProtectSystem": "strict",
+            "NoNewPrivileges": "yes"
+          },
+          "uid": 997,
+          "gid": 997,
+          "caps": {
+            "CapEff": "0000000000000400",
+            "CapPrm": "0000000000000400",
+            "CapBnd": "0000000000000400",
+            "CapAmb": "0000000000000400"
+          }
+        },
+        "hysteria": {
+          "blocked": {
+            "loopback": {
+              "blocked": true,
+              "errno": 111
+            },
+            "mapped-loopback": {
+              "blocked": true,
+              "errno": 111
+            },
+            "private-network": {
+              "blocked": true,
+              "errno": 111
+            },
+            "metadata": {
+              "blocked": true,
+              "errno": 111
+            },
+            "own-ssh": {
+              "blocked": true,
+              "errno": 111
+            }
+          },
+          "udp_blocked": true,
+          "udp_errno": 1,
+          "dns_works": true,
+          "can_write_key": false,
+          "can_write_cert_dir": false,
+          "properties": {
+            "MainPID": "803",
+            "MemoryMax": "536870912",
+            "TasksMax": "128",
+            "User": "vless-hysteria",
+            "Group": "xray",
+            "PrivateDevices": "yes",
+            "ProtectHome": "yes",
+            "ProtectSystem": "strict",
+            "NoNewPrivileges": "yes"
+          },
+          "uid": 996,
+          "gid": 997,
+          "caps": {
+            "CapEff": "0000000000000000",
+            "CapPrm": "0000000000000000",
+            "CapBnd": "0000000000000000",
+            "CapAmb": "0000000000000000"
+          }
+        },
+        "vless-sub": {
+          "blocked": {
+            "loopback": {
+              "blocked": true,
+              "errno": 111
+            },
+            "mapped-loopback": {
+              "blocked": true,
+              "errno": 111
+            },
+            "private-network": {
+              "blocked": true,
+              "errno": 111
+            },
+            "metadata": {
+              "blocked": true,
+              "errno": 111
+            },
+            "own-ssh": {
+              "blocked": true,
+              "errno": 111
+            }
+          },
+          "udp_blocked": true,
+          "udp_errno": 1,
+          "dns_works": true,
+          "can_write_key": false,
+          "can_write_cert_dir": false,
+          "properties": {
+            "MainPID": "805",
+            "MemoryMax": "268435456",
+            "TasksMax": "128",
+            "User": "vless-sub",
+            "Group": "xray",
+            "PrivateDevices": "yes",
+            "ProtectHome": "yes",
+            "ProtectSystem": "strict",
+            "NoNewPrivileges": "yes"
+          },
+          "uid": 995,
+          "gid": 997,
+          "caps": {
+            "CapEff": "0000000000000000",
+            "CapPrm": "0000000000000000",
+            "CapBnd": "0000000000000000",
+            "CapAmb": "0000000000000000"
+          }
+        }
+      },
+      "firewall": {
+        "iptables": {
+          "first_hook_is_service_group": true,
+          "first_chain_rule_is_reply_only": true,
+          "required_private_deny_present": true,
+          "reject_rule_count": 18
+        },
+        "ip6tables": {
+          "first_hook_is_service_group": true,
+          "first_chain_rule_is_reply_only": true,
+          "required_private_deny_present": true,
+          "reject_rule_count": 15
+        }
+      },
+      "application_acl": {
+        "xray_domain_strategy": "IPOnDemand",
+        "xray_rule_count": 2,
+        "hy2_acl_rule_count": 34
+      },
+      "ssh": {
+        "authenticationmethods": "publickey",
+        "passwordauthentication": "no",
+        "kbdinteractiveauthentication": "no",
+        "authorized_key_count": 2,
+        "authorized_keys_unchanged": true
+      },
+      "tls_permissions": {
+        "/etc/xray-certs": {
+          "uid": 0,
+          "gid": 997,
+          "mode": "0o750"
+        },
+        "/etc/xray-certs/fullchain.pem": {
+          "uid": 0,
+          "gid": 997,
+          "mode": "0o640"
+        },
+        "/etc/xray-certs/privkey.pem": {
+          "uid": 0,
+          "gid": 997,
+          "mode": "0o640"
+        }
+      },
+      "udp_buffers": {
+        "rmem_max": 16777216,
+        "wmem_max": 16777216
+      },
+      "tcp_congestion": "bbr",
+      "reboot_required_file_exists": false,
+      "all_pass": true
+    },
+    "proxy_recheck": {
+      "started_at": "2026-11-02T17:06:52.707612+00:00",
+      "policy": "explicit single-node MATCH, physical en1 egress; no client DIRECT exclusions",
+      "cases": [
+        {
+          "node": "wr-vps-hy2",
+          "test": "public_https_tls",
+          "reachable": true,
+          "expected": true,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-hy2",
+          "test": "loopback_tcp",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-hy2",
+          "test": "localhost_domain",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-hy2",
+          "test": "mapped_loopback",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-hy2",
+          "test": "own_public_ssh_banner",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-hy2",
+          "test": "loopback_udp",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": "connection_closed_or_timeout"
+        },
+        {
+          "node": "wr-vps-vision",
+          "test": "public_https_tls",
+          "reachable": true,
+          "expected": true,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-vision",
+          "test": "loopback_tcp",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-vision",
+          "test": "localhost_domain",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-vision",
+          "test": "mapped_loopback",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-vision",
+          "test": "own_public_ssh_banner",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-ws",
+          "test": "public_https_tls",
+          "reachable": true,
+          "expected": true,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-ws",
+          "test": "loopback_tcp",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-ws",
+          "test": "localhost_domain",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-ws",
+          "test": "mapped_loopback",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-ws",
+          "test": "own_public_ssh_banner",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-hy2",
+          "test": "invalid_credential",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-vision",
+          "test": "invalid_credential",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        },
+        {
+          "node": "wr-vps-ws",
+          "test": "invalid_credential",
+          "reachable": false,
+          "expected": false,
+          "pass": true,
+          "error_type": null
+        }
+      ],
+      "finished_at": "2026-11-02T17:07:05.153526+00:00",
+      "all_pass": true,
+      "temporary_clients_stopped": true
+    },
+    "temporary_test_data_removed": true
+  },
+  "cleanup": {
+    "temporary_canary_stopped": true,
+    "temporary_native_clients_stopped": true,
+    "remote_temporary_directory_removed": true,
+    "local_temporary_directory_removed": true,
+    "rollback_timer_cancelled": true
+  }
+}
